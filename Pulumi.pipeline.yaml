@@ -1,0 +1,9 @@
+config:
+  pipeline-demo:fullRepositoryId: ccarrascom/nombre-del-repo
+  pipeline-demo:branch: main
+  pipeline-demo:providerType: GitHub
+  # pipeline-demo:connectionArn: 
+  # pipeline-demo:artifactBucketName: 
+  # pipeline-demo:buildProjectName: 
+  # pipeline-demo:deployDevProjectName: 
+  # pipeline-demo:deployProdProjectName: 
