@@ -1,5 +1,5 @@
 config:
-  pipeline-demo:fullRepositoryId: ccarrascom/nombre-del-repo
+  pipeline-demo:fullRepositoryId: carlescamig/nombre-del-repo
   pipeline-demo:branch: main
   pipeline-demo:providerType: GitHub
   # pipeline-demo:connectionArn: 

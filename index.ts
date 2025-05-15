@@ -2,7 +2,8 @@ import * as pulumi from "@pulumi/pulumi";
 import { createPipeline } from "./lib/pipeline";
 import { registerAutoTags } from "./lib/autotag";
 import { appName, environment } from "./lib/config";
-
+import { deployProjectInfrastructure } from "./lib/projectInfra";
+import("./lib/projectInfra");
 // Obtener nombre del stack actual (ej: "dev", "prod", "pipeline")
 const stack = pulumi.getStack();
 // Aplica tags automáticos
@@ -19,11 +20,9 @@ if (stack === "pipeline") {
   createPipeline({
     fullRepositoryId: config.require("fullRepositoryId"),
     branch: config.require("branch"),
-    providerType: config.require("providerType")
+    providerType: config.require("providerType"),
   });
 } else {
   // 👉 Stack de infraestructura del proyecto real (dev/prod/etc)
-  import("./lib/projectInfra").then((mod) => {
-    mod.deployProjectInfrastructure(stack);
-  });
+  deployProjectInfrastructure(stack);
 }
