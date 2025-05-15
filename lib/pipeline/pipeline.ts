@@ -81,6 +81,21 @@ export function createPipeline(args: PipelineArgs): aws.codepipeline.Pipeline {
   });
   return new aws.codepipeline.Pipeline(name("pipeline"), {
     roleArn: pipelineRole.arn,
+    triggers: [
+      {
+        providerType: "CodeStarSourceConnection",
+        gitConfiguration: {
+          sourceActionName: "SourceAction",
+          pushes: [
+            {
+              branches: {
+                includes: [args.branch], // ejemplo: "main" o lo que recibas como arg
+              },
+            },
+          ],
+        },
+      },
+    ],
     artifactStores: [
       {
         location: artifactBucket.bucket,
