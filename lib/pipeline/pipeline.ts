@@ -5,7 +5,7 @@ import { PipelineArgs } from "./types";
 
 export function createPipeline(args: PipelineArgs): aws.codepipeline.Pipeline {
   const codestarconnection = new aws.codestarconnections.Connection(
-    name("connection"),
+    name("conn"),
     {
       name: `${appName}-connection`,
       providerType: args.providerType,
@@ -79,23 +79,9 @@ export function createPipeline(args: PipelineArgs): aws.codepipeline.Pipeline {
     role: pipelineRole,
     policyArn: aws.iam.ManagedPolicies.AdministratorAccess,
   });
+
   return new aws.codepipeline.Pipeline(name("pipeline"), {
     roleArn: pipelineRole.arn,
-    triggers: [
-      {
-        providerType: "CodeStarSourceConnection",
-        gitConfiguration: {
-          sourceActionName: "SourceAction",
-          pushes: [
-            {
-              branches: {
-                includes: [args.branch], // ejemplo: "main" o lo que recibas como arg
-              },
-            },
-          ],
-        },
-      },
-    ],
     artifactStores: [
       {
         location: artifactBucket.bucket,
