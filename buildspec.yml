@@ -1,0 +1,27 @@
+version: 0.2
+
+env:
+  secrets-manager:
+    PULUMI_ACCESS_TOKEN: PULUMI_ACCESS_TOKEN
+  variables:
+    PULUMI_STACK: PULUMI_STACK
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - curl -fsSL https://get.pulumi.com | sh
+      - export PATH=$PATH:/root/.pulumi/bin
+      - npm ci
+  pre_build:
+    commands:
+      - pulumi login --cloud-url https://api.pulumi.com
+      - pulumi stack select $PULUMI_STACK
+  build:
+    commands:
+      - pulumi preview --non-interactive
+      - pulumi up --yes
+artifacts:
+  files:
+    - "**/*"

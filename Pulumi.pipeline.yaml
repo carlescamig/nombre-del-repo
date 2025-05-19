@@ -2,8 +2,5 @@ config:
   pipeline-demo:fullRepositoryId: carlescamig/nombre-del-repo
   pipeline-demo:branch: main
   pipeline-demo:providerType: GitHub
-  # pipeline-demo:connectionArn: 
-  # pipeline-demo:artifactBucketName: 
-  # pipeline-demo:buildProjectName: 
-  # pipeline-demo:deployDevProjectName: 
-  # pipeline-demo:deployProdProjectName: 
+  pipeline-demo:PULUMI_ACCESS_TOKEN:
+    secure: AAABAKk9JM79Mx+NJebBbFn02sp2wF1YWikluyrAIzx3W85t9h+HV7sG0E0p3llbw0LemV2blfbbK7fv9OvQe2dO2QI6JFSe7PDEzA==
