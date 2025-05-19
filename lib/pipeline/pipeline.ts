@@ -27,46 +27,32 @@ export function createPipeline(args: PipelineArgs): aws.codepipeline.Pipeline {
     policyArn: aws.iam.ManagedPolicies.AdministratorAccess, // Puedes restringirlo
   });
 
-  // CodeBuild Projects
-  function createBuildProject(
-    name: string,
-    buildspec: string
-  ): aws.codebuild.Project {
-    return new aws.codebuild.Project(name, {
-      source: {
-        type: "CODEPIPELINE", // Fuente desde CodePipeline
-        buildspec,
-      },
-      artifacts: {
-        type: "CODEPIPELINE", // Salida para CodePipeline
-      },
-      environment: {
-        computeType: "BUILD_GENERAL1_SMALL",
-        image: "aws/codebuild/standard:7.0",
-        type: "LINUX_CONTAINER",
-        environmentVariables: [
-          {
-            name: "PULUMI_ACCESS_TOKEN",
-            value: "PULUMI_ACCESS_TOKEN", // nombre del secreto en Secrets Manager
-            type: "SECRETS_MANAGER",
-          },
-          {
-            name: "PULUMI_STACK",
-            value: name,
-          },
-        ],
-      },
-      serviceRole: codeBuildRole.arn,
-    });
+  const buildProjects: Record<string, aws.codebuild.Project> = {};
+  for (const stage of args.stages) {
+    buildProjects[stage.name] = new aws.codebuild.Project(
+      name(`build-${stage.name}`),
+      {
+        source: {
+          type: "CODEPIPELINE",
+          buildspec: stage.build.buildspec,
+        },
+        artifacts: {
+          type: "CODEPIPELINE",
+        },
+        environment: {
+          computeType: "BUILD_GENERAL1_SMALL",
+          image: "aws/codebuild/standard:7.0",
+          type: "LINUX_CONTAINER",
+          environmentVariables: stage.build.environmentVariables.map((env) => ({
+            name: env.name,
+            value: env.value,
+            type: env.type ?? "PLAINTEXT",
+          })),
+        },
+        serviceRole: codeBuildRole.arn,
+      }
+    );
   }
-  const devBuild = createBuildProject(
-    "pulumi-dev",
-    "codebuild-dev-buildspec.yml"
-  );
-  const prodBuild = createBuildProject(
-    "pulumi-prod",
-    "codebuild-prod-buildspec.yml"
-  );
 
   // Pipeline Role
   const pipelineRole = new aws.iam.Role(name("pipeline-role"), {
@@ -80,6 +66,63 @@ export function createPipeline(args: PipelineArgs): aws.codepipeline.Pipeline {
     policyArn: aws.iam.ManagedPolicies.AdministratorAccess,
   });
 
+  const stages: aws.types.input.codepipeline.PipelineStage[] = [
+    {
+      name: "Source",
+      actions: [
+        {
+          name: "Source",
+          category: "Source",
+          owner: "AWS",
+          provider: "CodeStarSourceConnection",
+          version: "1",
+          outputArtifacts: ["source_output"],
+          configuration: {
+            ConnectionArn: codestarconnection.arn,
+            FullRepositoryId: args.fullRepositoryId,
+            BranchName: args.branch,
+            DetectChanges: "true",
+          },
+        },
+      ],
+    },
+  ];
+
+  for (const stage of args.stages) {
+    let runOrder = 1;
+    const actions = [];
+    if (stage.manualApproval) {
+      actions.push({
+        name: `ManualApproval-${stage.name}`,
+        category: "Approval",
+        owner: "AWS",
+        provider: "Manual",
+        version: "1",
+        configuration: {
+          CustomData: `Approve deployment to ${stage.name}`,
+        },
+        runOrder: runOrder++,
+      });
+    }
+    actions.push({
+      name: `Build-${stage.name}`,
+      category: "Build",
+      owner: "AWS",
+      provider: "CodeBuild",
+      inputArtifacts: ["source_output"],
+      version: "1",
+      configuration: {
+        ProjectName: buildProjects[stage.name].name,
+      },
+      runOrder: runOrder++,
+      outputArtifacts: [`build_output_${stage.name}`],
+    });
+    stages.push({
+      name: `Deploy-${stage.name}`,
+      actions,
+    });
+  }
+
   return new aws.codepipeline.Pipeline(name("pipeline"), {
     roleArn: pipelineRole.arn,
     artifactStores: [
@@ -88,78 +131,6 @@ export function createPipeline(args: PipelineArgs): aws.codepipeline.Pipeline {
         type: "S3",
       },
     ],
-    stages: [
-      {
-        name: "Source",
-        actions: [
-          {
-            name: "Source",
-            category: "Source",
-            owner: "AWS",
-            provider: "CodeStarSourceConnection",
-            version: "1",
-            outputArtifacts: ["source_output"],
-            configuration: {
-              ConnectionArn: codestarconnection.arn,
-              FullRepositoryId: args.fullRepositoryId,
-              BranchName: args.branch,
-              DetectChanges: "true",
-            },
-          },
-        ],
-      },
-      {
-        name: "DeployDev",
-        actions: [
-          {
-            name: "DeployToDev",
-            category: "Build",
-            owner: "AWS",
-            provider: "CodeBuild",
-            inputArtifacts: ["source_output"],
-            version: "1",
-            configuration: {
-              ProjectName: devBuild.name,
-            },
-            outputArtifacts: ["dev_output"],
-          },
-        ],
-      },
-      {
-        name: "DeployProd",
-        actions: [
-          {
-            name: "ManualApproval",
-            category: "Approval",
-            owner: "AWS",
-            provider: "Manual",
-            version: "1",
-            configuration: {
-              CustomData: "¿Ejecutar despliegue a producción?",
-            },
-            runOrder: 1,
-          },
-          {
-            name: "DeployProd",
-            category: "Build",
-            owner: "AWS",
-            provider: "CodeBuild",
-            inputArtifacts: ["source_output"],
-            version: "1",
-            runOrder: 2,
-            configuration: {
-              ProjectName: prodBuild.name,
-              // EnvironmentVariables: JSON.stringify([
-              //   {
-              //     name: "PULUMI_STACK",
-              //     value: "prod",
-              //     type: "PLAINTEXT",
-              //   },
-              // ]),
-            },
-          },
-        ],
-      },
-    ],
+    stages,
   });
 }
