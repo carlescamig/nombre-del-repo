@@ -1,11 +1,7 @@
 version: 0.2
-
 env:
-  secrets-manager:
-    PULUMI_ACCESS_TOKEN: PULUMI_ACCESS_TOKEN
   variables:
     PULUMI_STACK: PULUMI_STACK
-
 phases:
   install:
     runtime-versions:
